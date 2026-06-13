@@ -35,3 +35,9 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Test reporting artifacts (match anywhere: a local run writes test/allure-results)
+allure-results/
+allure-report/
+allure-history/
+/gh-pages

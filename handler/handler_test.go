@@ -45,7 +45,11 @@ func setup() {
 	as = store.NewArticleStore(d)
 	h = NewHandler(us, as)
 	e = router.New()
-	loadFixtures()
+	// Propagate fixture errors (was bug #6: the return value was ignored, so a
+	// failed seed silently produced a half-populated DB and confusing failures).
+	if err := loadFixtures(); err != nil {
+		log.Fatalf("loadFixtures: %v", err)
+	}
 }
 func tearDown() {
 	if err := db.DropTestDB(); err != nil {

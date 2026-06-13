@@ -1,12 +1,13 @@
+// You must first install   https://github.com/arsmn/fiber-swagger
+//
 //go:generate swag init
-//You must first install   https://github.com/arsmn/fiber-swagger
 package main
 
 import (
 	"fmt"
 
 	"github.com/alpody/fiber-realworld/db"
-	_ "github.com/alpody/fiber-realworld/docs"
+	//_ "github.com/alpody/fiber-realworld/docs" commented out so main launches with no preconditions
 	"github.com/alpody/fiber-realworld/handler"
 	"github.com/alpody/fiber-realworld/router"
 	"github.com/alpody/fiber-realworld/store"
