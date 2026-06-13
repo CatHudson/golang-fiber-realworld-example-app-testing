@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: write # required to push the published report to the gh-pages branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests (emit Allure results)
+        if: always()
+        env:
+          # allure-go writes to "$ALLURE_RESULTS_PATH/allure-results". Pinning it
+          # to the workspace root means results land in <root>/allure-results
+          # regardless of which package's test binary is running.
+          ALLURE_RESULTS_PATH: ${{ github.workspace }}
+        run: |
+          mkdir -p "$ALLURE_RESULTS_PATH/allure-results"
+          # `|| true` so a failing test (we deliberately ship red bug-tests) still
+          # lets the report publish.
+          go test -v ./... || true
+
+      - name: Load Allure history
+        uses: actions/checkout@v4
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Generate Allure report (with history)
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+
+      - name: Publish report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
