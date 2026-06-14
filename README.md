@@ -3,7 +3,7 @@
 > This is a fork of the [alpody/golang-fiber-realworld-example-app](https://github.com/alpody/golang-fiber-realworld-example-app) Conduit backend, with an automated test suite added on top. Everything below the `─────` separator is the upstream project's original README, left untouched.
 >
 > - **Fork:** https://github.com/CatHudson/golang-fiber-realworld-example-app-testing
-> - **Live Allure report (CI-published):** https://cathudson.github.io/golang-fiber-realworld-example-app-testing/16/#
+> - **Live Allure report (CI-published):** https://cathudson.github.io/golang-fiber-realworld-example-app-testing/17/# You can change the number in the link to see the test history.
 
 ## The app I picked, and why
 
