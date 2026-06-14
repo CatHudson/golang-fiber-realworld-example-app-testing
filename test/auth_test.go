@@ -105,13 +105,13 @@ func TestAuth_Register_MissingPassword(t *testing.T) {
 		allure.Severity(sevNormal))
 }
 
-// TestAuth_Register_MissingEmail_SPEC documents bug #5: the Email field's struct
+// TestAuth_Register_MissingEmail_SPEC documents bug #4: the Email field's struct
 // tag in handler/request.go is malformed — `json: "email"` (space after the
 // colon) breaks tag parsing for the whole field, which silently disables its
 // `validate:"required, email"` rule too. So a registration with NO email is
 // accepted (201) when the RealWorld contract requires a 422.
 //
-// FAILS until bug #5 is fixed.
+// FAILS until bug #4 is fixed.
 func TestAuth_Register_MissingEmail_SPEC(t *testing.T) {
 	t.Parallel()
 	runTest(t, func() {
@@ -125,20 +125,20 @@ func TestAuth_Register_MissingEmail_SPEC(t *testing.T) {
 			}}, "")
 			attach("response", resp)
 		})
-		then("it must be rejected with 422 (BUG #5: a malformed struct tag disables the `required` rule, so it returns 201)", func() {
+		then("it must be rejected with 422 (BUG #4: a malformed struct tag disables the `required` rule, so it returns 201)", func() {
 			require.Equal(t, http.StatusUnprocessableEntity, resp.status,
-				"BUG #5: missing email should be 422; malformed struct tag disables the `required` rule (got %d)", resp.status)
+				"BUG #4: missing email should be 422; malformed struct tag disables the `required` rule (got %d)", resp.status)
 		})
 	}, allure.Feature(featAuth), allure.Story(storyValidation),
-		allure.Description("SPEC: registering without an email must be rejected (422). Documents bug #5 — runs RED."),
-		allure.Tag(tagBug5), allure.Tag(tagSpec), allure.Severity(sevCritical))
+		allure.Description("SPEC: registering without an email must be rejected (422). Documents bug #4 — runs RED."),
+		allure.Tag(tagBug4), allure.Tag(tagSpec), allure.Severity(sevCritical))
 }
 
-// TestAuth_Register_InvalidEmail_SPEC documents bug #5 from the other angle: a
+// TestAuth_Register_InvalidEmail_SPEC documents bug #4 from the other angle: a
 // syntactically invalid email ("not-an-email") is accepted (201) because the
 // `email` format validator never runs on the field. Spec wants 422.
 //
-// FAILS until bug #5 is fixed.
+// FAILS until bug #4 is fixed.
 func TestAuth_Register_InvalidEmail_SPEC(t *testing.T) {
 	t.Parallel()
 	runTest(t, func() {
@@ -153,13 +153,13 @@ func TestAuth_Register_InvalidEmail_SPEC(t *testing.T) {
 			}}, "")
 			attach("response", resp)
 		})
-		then("it must be rejected with 422 (BUG #5: the `email` validator never runs, so it returns 201)", func() {
+		then("it must be rejected with 422 (BUG #4: the `email` validator never runs, so it returns 201)", func() {
 			require.Equal(t, http.StatusUnprocessableEntity, resp.status,
-				"BUG #5: invalid email should be 422; `email` validator never runs (got %d)", resp.status)
+				"BUG #4: invalid email should be 422; `email` validator never runs (got %d)", resp.status)
 		})
 	}, allure.Feature(featAuth), allure.Story(storyValidation),
-		allure.Description("SPEC: an invalid email format must be rejected (422). Documents bug #5 — runs RED."),
-		allure.Tag(tagBug5), allure.Tag(tagSpec), allure.Severity(sevCritical))
+		allure.Description("SPEC: an invalid email format must be rejected (422). Documents bug #4 — runs RED."),
+		allure.Tag(tagBug4), allure.Tag(tagSpec), allure.Severity(sevCritical))
 }
 
 // ---- Login ---------------------------------------------------------------
@@ -228,6 +228,41 @@ func TestAuth_Login_UnknownUser(t *testing.T) {
 	}, allure.Feature(featAuth), allure.Story(storyLogin),
 		allure.Description("Logging in as an unknown user is rejected with 403"),
 		allure.Severity(sevNormal))
+}
+
+// TestAuth_Login_MissingPassword_SPEC documents bug #6 — a sibling of the email
+// tag bug (#4), same root cause, different field. In handler/request.go the login
+// request's Password carries `validate: "required"` (space after the colon), which
+// breaks StructTag parsing so the `required` rule never runs. A login with NO
+// password therefore skips validation and falls through to the password check,
+// where bcrypt rejects the empty password with 403 "access forbidden". The
+// RealWorld contract treats a missing required field as a 422 validation error.
+//
+// Probed before asserting: missing-password login returns 403, not 422.
+// FAILS until the struct tag is fixed.
+func TestAuth_Login_MissingPassword_SPEC(t *testing.T) {
+	t.Parallel()
+	runTest(t, func() {
+		ta := newApp(t)
+		given("a registered user alice", func() {
+			ta.registerAndLogin(t, "alice")
+		})
+
+		var resp apiResp
+		when("she logs in with no password field at all", func() {
+			resp = ta.doReq(t, http.MethodPost, pathLogin, map[string]any{"user": map[string]string{
+				"email": "alice@realworld.io",
+			}}, "")
+			attach("response", resp)
+		})
+		then("it must be rejected as a validation error with 422 (BUG #6: malformed `validate:` tag disables `required`, so it returns 403 instead)", func() {
+			require.Equal(t, http.StatusUnprocessableEntity, resp.status,
+				"BUG #6: missing password should be a 422 validation error; the broken `validate: \"required\"` tag disables the rule, so it falls through to a 403 (got %d: %s)",
+				resp.status, string(resp.body))
+		})
+	}, allure.Feature(featAuth), allure.Story(storyValidation),
+		allure.Description("SPEC: logging in without a password must be rejected as a validation error (422). Documents bug #6 — runs RED."),
+		allure.Tag(tagBug6), allure.Tag(tagSpec), allure.Severity(sevCritical))
 }
 
 // ---- Current user --------------------------------------------------------

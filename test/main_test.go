@@ -80,6 +80,7 @@ const (
 	tagBug1 = "bug-1"
 	tagBug2 = "bug-2"
 	tagBug3 = "bug-3"
+	tagBug4 = "bug-4"
 	tagBug5 = "bug-5"
 	tagBug6 = "bug-6"
 )
