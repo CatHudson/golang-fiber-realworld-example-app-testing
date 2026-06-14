@@ -37,12 +37,16 @@ const (
 	pathLogin    = "/api/users/login"
 	pathUser     = "/api/user"
 	pathArticles = "/api/articles"
+	pathFeed     = pathArticles + "/feed"
+	pathTags     = "/api/tags"
 )
 
 func pathArticle(slug string) string     { return pathArticles + "/" + slug }
 func pathComments(slug string) string    { return pathArticle(slug) + "/comments" }
 func pathComment(slug, id string) string { return pathComments(slug) + "/" + id }
 func pathFavorite(slug string) string    { return pathArticle(slug) + "/favorite" }
+func pathProfile(username string) string { return "/api/profiles/" + username }
+func pathFollow(username string) string  { return pathProfile(username) + "/follow" }
 
 // Allure organisational labels — Epic / Feature / Story / Tag. Centralised so
 // the report taxonomy stays consistent and renames happen in one place.
@@ -53,6 +57,7 @@ const (
 	featArticles  = "Articles"
 	featComments  = "Comments"
 	featFavorites = "Favorites"
+	featFlows     = "End-to-end flows"
 
 	storyRegistration = "Registration"
 	storyLogin        = "Login"
@@ -65,12 +70,18 @@ const (
 	storyFilter       = "Filtering & pagination"
 	storyFavorite     = "Favorite"
 	storyUnfavorite   = "Unfavorite"
+	storyFeed         = "Feed"
+	storyAuthoring    = "Authoring lifecycle"
+	storySocial       = "Follow & feed"
+	storyFavoriting   = "Favoriting journey"
+	storyAccount      = "Account lifecycle"
 
 	tagSpec = "spec"
 	tagBug1 = "bug-1"
 	tagBug2 = "bug-2"
 	tagBug3 = "bug-3"
 	tagBug5 = "bug-5"
+	tagBug6 = "bug-6"
 )
 
 // runTest wraps a test body in an Allure test node with the common Epic and any
@@ -203,10 +214,24 @@ func decode(t *testing.T, r apiResp, v any) {
 // userResp is the shape of the {"user": {...}} envelope returned by auth endpoints.
 type userResp struct {
 	User struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Token    string `json:"token"`
+		Username string  `json:"username"`
+		Email    string  `json:"email"`
+		Bio      *string `json:"bio"`
+		Token    string  `json:"token"`
 	} `json:"user"`
+}
+
+// profileResp is the {"profile": {...}} envelope returned by profile/follow endpoints.
+type profileResp struct {
+	Profile struct {
+		Username  string `json:"username"`
+		Following bool   `json:"following"`
+	} `json:"profile"`
+}
+
+// tagsResp is the {"tags": [...]} envelope returned by GET /api/tags.
+type tagsResp struct {
+	Tags []string `json:"tags"`
 }
 
 // register creates a new user via the public API and returns the full response.
