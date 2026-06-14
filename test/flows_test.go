@@ -152,7 +152,7 @@ func TestFlow_FollowAndFeed(t *testing.T) {
 		})
 		and("the fan's feed now holds both of the celeb's articles, newest first", func() {
 			// NB: assert the article list itself — articlesCount is wrong here
-			// (bug #6, see TestFlow_Feed_ArticlesCountMismatch_SPEC), so this
+			// (bug #5, see TestFlow_Feed_ArticlesCountMismatch_SPEC), so this
 			// GREEN journey checks only what the feed gets right.
 			resp := ta.doReq(t, http.MethodGet, pathFeed, nil, fan)
 			attach("populated feed", resp)
@@ -292,7 +292,7 @@ func TestFlow_Account(t *testing.T) {
 		allure.Severity(sevCritical))
 }
 
-// TestFlow_Feed_ArticlesCountMismatch_SPEC documents bug #6, found while building
+// TestFlow_Feed_ArticlesCountMismatch_SPEC documents bug #5, found while building
 // the follow→feed journey above. GET /api/articles/feed returns the right articles
 // (the posts of everyone you follow) but the wrong articlesCount: the count query
 // in store.ListFeed is
@@ -305,7 +305,7 @@ func TestFlow_Account(t *testing.T) {
 // conclude there are no results and stop. The count must equal the number of feed
 // articles.
 //
-// FAILS until bug #6 is fixed (the feed count must reflect the feed, not the viewer).
+// FAILS until bug #5 is fixed (the feed count must reflect the feed, not the viewer).
 func TestFlow_Feed_ArticlesCountMismatch_SPEC(t *testing.T) {
 	t.Parallel()
 	runTest(t, func() {
@@ -330,13 +330,13 @@ func TestFlow_Feed_ArticlesCountMismatch_SPEC(t *testing.T) {
 		then("the feed lists both of the celeb's articles", func() {
 			require.Len(t, out.Articles, 2)
 		})
-		and("articlesCount must equal 2 — but BUG #6: the count query counts the viewer's own articles, so it reports 0", func() {
+		and("articlesCount must equal 2 — but BUG #5: the count query counts the viewer's own articles, so it reports 0", func() {
 			require.EqualValues(t, 2, out.ArticlesCount,
-				"BUG #6: feed articlesCount counts the viewer's own articles (AuthorID = viewer) instead of the feed's, so it reports 0 while two articles are returned")
+				"BUG #5: feed articlesCount counts the viewer's own articles (AuthorID = viewer) instead of the feed's, so it reports 0 while two articles are returned")
 		})
 	}, allure.Feature(featFlows), allure.Story(storyFeed),
-		allure.Description("SPEC: the feed's articlesCount must match the feed. Documents bug #6 — runs RED."),
-		allure.Tag(tagBug6), allure.Tag(tagSpec), allure.Severity(sevCritical))
+		allure.Description("SPEC: the feed's articlesCount must match the feed. Documents bug #5 — runs RED."),
+		allure.Tag(tagBug5), allure.Tag(tagSpec), allure.Severity(sevCritical))
 }
 
 // deref returns the pointed-to string, or "" for a nil pointer (bio/image are
