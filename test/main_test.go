@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/alpody/fiber-realworld/db"
@@ -25,6 +26,7 @@ import (
 	"github.com/dailymotion/allure-go/severity"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // API route paths. Static paths are constants; resource paths that take a
@@ -37,16 +39,20 @@ const (
 	pathArticles = "/api/articles"
 )
 
-func pathArticle(slug string) string { return pathArticles + "/" + slug }
+func pathArticle(slug string) string     { return pathArticles + "/" + slug }
+func pathComments(slug string) string    { return pathArticle(slug) + "/comments" }
+func pathComment(slug, id string) string { return pathComments(slug) + "/" + id }
+func pathFavorite(slug string) string    { return pathArticle(slug) + "/favorite" }
 
 // Allure organisational labels — Epic / Feature / Story / Tag. Centralised so
 // the report taxonomy stays consistent and renames happen in one place.
-// (Comment/favorite labels and the bug-2/bug-3 tags arrive with Commit 3.)
 const (
 	epicAPI = "Conduit API"
 
-	featAuth     = "Auth"
-	featArticles = "Articles"
+	featAuth      = "Auth"
+	featArticles  = "Articles"
+	featComments  = "Comments"
+	featFavorites = "Favorites"
 
 	storyRegistration = "Registration"
 	storyLogin        = "Login"
@@ -56,8 +62,12 @@ const (
 	storyRead         = "Read"
 	storyUpdate       = "Update"
 	storyDelete       = "Delete"
+	storyFavorite     = "Favorite"
+	storyUnfavorite   = "Unfavorite"
 
 	tagSpec = "spec"
+	tagBug2 = "bug-2"
+	tagBug3 = "bug-3"
 	tagBug5 = "bug-5"
 )
 
@@ -69,6 +79,9 @@ func runTest(t *testing.T, body func(), opts ...allure.Option) {
 	all := append([]allure.Option{allure.Epic(epicAPI), allure.Action(body)}, opts...)
 	allure.Test(t, all...)
 }
+
+// itoa formats an unsigned id (e.g. a comment ID) for use in a URL path.
+func itoa(n uint) string { return strconv.FormatUint(uint64(n), 10) }
 
 // step is a thin wrapper around allure.Step for readability.
 func step(desc string, fn func()) {
@@ -83,6 +96,7 @@ func attach(name string, r apiResp) {
 
 // sev re-exports the severity levels actually used, to keep imports tidy in tests.
 var (
+	sevBlocker  = severity.Blocker
 	sevCritical = severity.Critical
 	sevNormal   = severity.Normal
 )
@@ -104,9 +118,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// testApp is one fully-wired, isolated instance of the application.
+// testApp is one fully-wired, isolated instance of the application. It keeps a
+// handle on the underlying *gorm.DB so a test can deliberately break the
+// datastore (e.g. closeDB) to exercise error paths.
 type testApp struct {
 	app *fiber.App
+	db  *gorm.DB
 }
 
 // newApp builds a fresh app backed by its own in-memory database. Each call is
@@ -120,7 +137,16 @@ func newApp(t *testing.T) *testApp {
 	h := handler.NewHandler(us, as)
 	app := router.New()
 	h.Register(app)
-	return &testApp{app: app}
+	return &testApp{app: app, db: d}
+}
+
+// closeDB closes the underlying sql.DB so subsequent store calls fail with
+// "sql: database is closed" — used to drive handler error branches.
+func (ta *testApp) closeDB(t *testing.T) {
+	t.Helper()
+	sqlDB, err := ta.db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
 }
 
 // apiResp is a decoded HTTP response: status + raw body bytes.
@@ -235,6 +261,29 @@ func (ta *testApp) createArticle(t *testing.T, token, title string, tags ...stri
 	resp := ta.doReq(t, http.MethodPost, pathArticles, map[string]any{"article": art}, token)
 	require.Equal(t, http.StatusCreated, resp.status, "createArticle %q failed: %s", title, string(resp.body))
 	var out articleResp
+	decode(t, resp, &out)
+	return out
+}
+
+// commentResp is the {"comment": {...}} envelope returned by comment endpoints.
+type commentResp struct {
+	Comment struct {
+		ID     uint   `json:"id"`
+		Body   string `json:"body"`
+		Author struct {
+			Username string `json:"username"`
+		} `json:"author"`
+	} `json:"comment"`
+}
+
+// addComment posts a comment on slug as the holder of token and returns the
+// decoded response. Fails the test if creation doesn't return 201.
+func (ta *testApp) addComment(t *testing.T, token, slug, body string) commentResp {
+	t.Helper()
+	resp := ta.doReq(t, http.MethodPost, pathComments(slug),
+		map[string]any{"comment": map[string]string{"body": body}}, token)
+	require.Equal(t, http.StatusCreated, resp.status, "addComment failed: %s", string(resp.body))
+	var out commentResp
 	decode(t, resp, &out)
 	return out
 }
