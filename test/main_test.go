@@ -21,8 +21,70 @@ import (
 	"github.com/alpody/fiber-realworld/handler"
 	"github.com/alpody/fiber-realworld/router"
 	"github.com/alpody/fiber-realworld/store"
+	"github.com/dailymotion/allure-go"
+	"github.com/dailymotion/allure-go/severity"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
+)
+
+// API route paths. Static paths are constants; resource paths that take a
+// parameter are built by the helpers below so the "/api/..." prefix lives in
+// exactly one place.
+const (
+	pathUsers    = "/api/users"
+	pathLogin    = "/api/users/login"
+	pathUser     = "/api/user"
+	pathArticles = "/api/articles"
+)
+
+func pathArticle(slug string) string { return pathArticles + "/" + slug }
+
+// Allure organisational labels — Epic / Feature / Story / Tag. Centralised so
+// the report taxonomy stays consistent and renames happen in one place.
+// (Comment/favorite labels and the bug-2/bug-3 tags arrive with Commit 3.)
+const (
+	epicAPI = "Conduit API"
+
+	featAuth     = "Auth"
+	featArticles = "Articles"
+
+	storyRegistration = "Registration"
+	storyLogin        = "Login"
+	storyValidation   = "Validation"
+	storyCurrentUser  = "Current user"
+	storyCreate       = "Create"
+	storyRead         = "Read"
+	storyUpdate       = "Update"
+	storyDelete       = "Delete"
+
+	tagSpec = "spec"
+	tagBug5 = "bug-5"
+)
+
+// runTest wraps a test body in an Allure test node with the common Epic and any
+// extra labels (Feature/Story/Description/Severity/Tag). Keeps each test file
+// focused on behaviour rather than Allure boilerplate.
+func runTest(t *testing.T, body func(), opts ...allure.Option) {
+	t.Helper()
+	all := append([]allure.Option{allure.Epic(epicAPI), allure.Action(body)}, opts...)
+	allure.Test(t, all...)
+}
+
+// step is a thin wrapper around allure.Step for readability.
+func step(desc string, fn func()) {
+	allure.Step(allure.Description(desc), allure.Action(fn))
+}
+
+// attach records a response body as a JSON attachment on the current step/test —
+// used on bug-probing assertions so the failing payload is visible in the report.
+func attach(name string, r apiResp) {
+	_ = allure.AddAttachment(name, allure.ApplicationJson, r.body)
+}
+
+// sev re-exports the severity levels actually used, to keep imports tidy in tests.
+var (
+	sevCritical = severity.Critical
+	sevNormal   = severity.Normal
 )
 
 // TestMain gives allure-go a writable results directory by default.
@@ -116,7 +178,7 @@ func (ta *testApp) register(t *testing.T, username string) (userResp, apiResp) {
 		"email":    username + "@realworld.io",
 		"password": "secret123",
 	}}
-	resp := ta.doReq(t, http.MethodPost, "/api/users", payload, "")
+	resp := ta.doReq(t, http.MethodPost, pathUsers, payload, "")
 	var out userResp
 	if resp.status == http.StatusCreated {
 		decode(t, resp, &out)
@@ -132,4 +194,47 @@ func (ta *testApp) registerAndLogin(t *testing.T, username string) string {
 	require.Equal(t, http.StatusCreated, resp.status, "register %q failed: %s", username, string(resp.body))
 	require.NotEmpty(t, out.User.Token)
 	return out.User.Token
+}
+
+// login posts credentials to /api/users/login and returns the raw response.
+func (ta *testApp) login(t *testing.T, email, password string) apiResp {
+	t.Helper()
+	return ta.doReq(t, http.MethodPost, pathLogin,
+		map[string]any{"user": map[string]string{"email": email, "password": password}}, "")
+}
+
+// articleResp is the {"article": {...}} envelope returned by article endpoints.
+type articleResp struct {
+	Article struct {
+		Slug           string   `json:"slug"`
+		Title          string   `json:"title"`
+		Description    string   `json:"description"`
+		Body           string   `json:"body"`
+		TagList        []string `json:"tagList"`
+		Favorited      bool     `json:"favorited"`
+		FavoritesCount int      `json:"favoritesCount"`
+		Author         struct {
+			Username  string `json:"username"`
+			Following bool   `json:"following"`
+		} `json:"author"`
+	} `json:"article"`
+}
+
+// createArticle publishes an article as the holder of token and returns the
+// decoded response. Fails the test if creation doesn't return 201.
+func (ta *testApp) createArticle(t *testing.T, token, title string, tags ...string) articleResp {
+	t.Helper()
+	art := map[string]any{
+		"title":       title,
+		"description": "description of " + title,
+		"body":        "body of " + title,
+	}
+	if len(tags) > 0 {
+		art["tagList"] = tags
+	}
+	resp := ta.doReq(t, http.MethodPost, pathArticles, map[string]any{"article": art}, token)
+	require.Equal(t, http.StatusCreated, resp.status, "createArticle %q failed: %s", title, string(resp.body))
+	var out articleResp
+	decode(t, resp, &out)
+	return out
 }

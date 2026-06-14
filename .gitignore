@@ -42,3 +42,6 @@ allure-results/
 allure-report/
 allure-history/
 /gh-pages
+
+# Serena files
+.serena
