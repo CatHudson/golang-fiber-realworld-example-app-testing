@@ -334,7 +334,7 @@ func TestFlow_Feed_ArticlesCountMismatch_SPEC(t *testing.T) {
 			require.EqualValues(t, 2, out.ArticlesCount,
 				"BUG #6: feed articlesCount counts the viewer's own articles (AuthorID = viewer) instead of the feed's, so it reports 0 while two articles are returned")
 		})
-	}, allure.Feature(featArticles), allure.Story(storyFeed),
+	}, allure.Feature(featFlows), allure.Story(storyFeed),
 		allure.Description("SPEC: the feed's articlesCount must match the feed. Documents bug #6 — runs RED."),
 		allure.Tag(tagBug6), allure.Tag(tagSpec), allure.Severity(sevCritical))
 }
