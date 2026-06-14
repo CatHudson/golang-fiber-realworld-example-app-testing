@@ -1,0 +1,8 @@
+10:14:54 | 201 |   81.939833ms | 0.0.0.0 | POST | /api/users | -
+10:14:54 | 201 |   15.592927ms | 0.0.0.0 | POST | /api/articles | -
+10:14:54 | 201 |     360.146µs | 0.0.0.0 | POST | /api/articles/boom/comments | -
+
+2026/06/14 10:14:54 [31;1m/home/runner/work/golang-fiber-realworld-example-app-testing/golang-fiber-realworld-example-app-testing/store/article.go:254 [35;1msql: database is closed
+[0m[33m[0.006ms] [34;1m[rows:0][0m SELECT * FROM `comments` WHERE `comments`.`id` = 1 AND `comments`.`deleted_at` IS NULL ORDER BY `comments`.`id` LIMIT 1
+2026/06/14 10:14:54 [FATAL]
+2026/06/14 10:14:54 sql: database is closed
