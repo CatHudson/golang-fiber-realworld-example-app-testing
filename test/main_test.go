@@ -90,6 +90,17 @@ func step(desc string, fn func()) {
 	allure.Step(allure.Description(desc), allure.Action(fn))
 }
 
+// given / when / then / and structure a test as Arrange / Act / Assert in the
+// Allure report. Each prepends its keyword so the step list reads like a
+// sentence ("Given a registered author", "When she POSTs an article", "Then it
+// returns 201"). Crucially, assertions live inside then/and steps, so the report
+// shows the expectation being checked — not just the request being sent — and a
+// failed assertion surfaces as a red step with its message.
+func given(desc string, fn func()) { step("Given "+desc, fn) }
+func when(desc string, fn func())  { step("When "+desc, fn) }
+func then(desc string, fn func())  { step("Then "+desc, fn) }
+func and(desc string, fn func())   { step("And "+desc, fn) }
+
 // attach records a response body as a JSON attachment on the current step/test —
 // used on bug-probing assertions so the failing payload is visible in the report.
 func attach(name string, r apiResp) {
