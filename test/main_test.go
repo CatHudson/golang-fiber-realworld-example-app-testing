@@ -62,10 +62,12 @@ const (
 	storyRead         = "Read"
 	storyUpdate       = "Update"
 	storyDelete       = "Delete"
+	storyFilter       = "Filtering & pagination"
 	storyFavorite     = "Favorite"
 	storyUnfavorite   = "Unfavorite"
 
 	tagSpec = "spec"
+	tagBug1 = "bug-1"
 	tagBug2 = "bug-2"
 	tagBug3 = "bug-3"
 	tagBug5 = "bug-5"
@@ -87,6 +89,17 @@ func itoa(n uint) string { return strconv.FormatUint(uint64(n), 10) }
 func step(desc string, fn func()) {
 	allure.Step(allure.Description(desc), allure.Action(fn))
 }
+
+// given / when / then / and structure a test as Arrange / Act / Assert in the
+// Allure report. Each prepends its keyword so the step list reads like a
+// sentence ("Given a registered author", "When she POSTs an article", "Then it
+// returns 201"). Crucially, assertions live inside then/and steps, so the report
+// shows the expectation being checked — not just the request being sent — and a
+// failed assertion surfaces as a red step with its message.
+func given(desc string, fn func()) { step("Given "+desc, fn) }
+func when(desc string, fn func())  { step("When "+desc, fn) }
+func then(desc string, fn func())  { step("Then "+desc, fn) }
+func and(desc string, fn func())   { step("And "+desc, fn) }
 
 // attach records a response body as a JSON attachment on the current step/test —
 // used on bug-probing assertions so the failing payload is visible in the report.
@@ -285,5 +298,39 @@ func (ta *testApp) addComment(t *testing.T, token, slug, body string) commentRes
 	require.Equal(t, http.StatusCreated, resp.status, "addComment failed: %s", string(resp.body))
 	var out commentResp
 	decode(t, resp, &out)
+	return out
+}
+
+// articleListResp is the {"articles": [...], "articlesCount": N} envelope
+// returned by the article list endpoint.
+type articleListResp struct {
+	Articles []struct {
+		Slug    string   `json:"slug"`
+		Title   string   `json:"title"`
+		TagList []string `json:"tagList"`
+		Author  struct {
+			Username string `json:"username"`
+		} `json:"author"`
+	} `json:"articles"`
+	ArticlesCount int64 `json:"articlesCount"`
+}
+
+// listArticles GETs /api/articles with the given query string (e.g. "?tag=go")
+// and returns the decoded list plus the raw response. The endpoint is public.
+func (ta *testApp) listArticles(t *testing.T, query string) (articleListResp, apiResp) {
+	t.Helper()
+	resp := ta.doReq(t, http.MethodGet, pathArticles+query, nil, "")
+	require.Equal(t, http.StatusOK, resp.status, "list failed: %s", string(resp.body))
+	var out articleListResp
+	decode(t, resp, &out)
+	return out, resp
+}
+
+// slugs extracts the article slugs from a list response, in order.
+func (r articleListResp) slugs() []string {
+	out := make([]string, len(r.Articles))
+	for i, a := range r.Articles {
+		out[i] = a.Slug
+	}
 	return out
 }
